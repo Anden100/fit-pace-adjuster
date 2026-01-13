@@ -136,7 +136,8 @@
                         <tr>
                             <th>Lap</th>
                             <th>Duration</th>
-                            <th>Pace Input</th>
+                            <th>Pace</th>
+                            <th>Distance (m)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -151,7 +152,15 @@
                                            x-model="lapPaces[index]"
                                            placeholder="5:30"
                                            @input="validatePace($event, 'lap', index)"
-                                           class="pace-input-field">
+                                           class="lap-input-field">
+                                </td>
+                                <td class="distance-input-cell">
+                                    <input type="number"
+                                           :id="'distance' + index"
+                                           x-model="lapDistances[index]"
+                                           placeholder="1000"
+                                           @input="updatePaceFromDistance(index)"
+                                           class="lap-input-field">
                                 </td>
                             </tr>
                         </template>

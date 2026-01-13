@@ -250,7 +250,7 @@ body {
 .lap-pace-table thead th {
     background: #e9ecef;
     padding: 12px 16px;
-    text-align: left;
+    text-align: center;
     font-weight: 600;
     border-bottom: 2px solid #dee2e6;
     color: #495057;
@@ -275,7 +275,29 @@ body {
 }
 
 .lap-pace-table .pace-input-cell {
-    width: 200px;
+    width: 120px;
+}
+
+.lap-pace-table .distance-input-cell {
+    width: 120px;
+}
+
+.lap-input-field {
+    width: 80px;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.lap-input-field:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
 }
 
 .pace-input-field {
@@ -323,7 +345,7 @@ body {
 .laps-table thead th {
     background: #e9ecef;
     padding: 12px 16px;
-    text-align: left;
+    text-align: center;
     font-weight: 600;
     border-bottom: 2px solid #dee2e6;
     color: #495057;
@@ -367,11 +389,8 @@ body {
 
 /* Responsive adjustments for tables */
 @media (max-width: 768px) {
-    .lap-pace-table .pace-input-cell {
-        width: 150px;
-    }
-
-    .pace-input-field {
+    .lap-input-field {
+        width: 80px;
         font-size: 13px;
         padding: 6px 8px;
     }
@@ -379,11 +398,11 @@ body {
     .laps-table .lap-distance,
     .laps-table .lap-duration,
     .laps-table .lap-avg-pace {
-        width: 100px;
+        width: 80px;
     }
 
     .lap-pace-table .lap-duration {
-        width: 100px;
+        width: 80px;
     }
 
     .lap-pace-table .pace-input-cell {

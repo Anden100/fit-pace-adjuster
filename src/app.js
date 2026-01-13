@@ -21,6 +21,7 @@ Alpine.data("app", () => ({
     paceUnit: "km",
     singlePace: "",
     autoLapEnabled: true,
+    lapDistances: [],
     lapPaces: [],
 
     // Processing state
@@ -55,6 +56,7 @@ Alpine.data("app", () => ({
         this.decodedMessages = null;
         this.errorMessage = "";
         this.lapPaces = [];
+        this.lapDistances = [];
         this.singlePace = "";
         this.autoLapEnabled = true;
         this.isValid = false;
@@ -159,6 +161,7 @@ Alpine.data("app", () => ({
 
         this.workoutData = workoutData;
         this.lapPaces = new Array(workoutData.laps.length).fill("");
+        this.lapDistances = new Array(workoutData.laps.length).fill("");
     },
 
     calculatePace(distance, time) {
@@ -177,8 +180,32 @@ Alpine.data("app", () => ({
             event.target.setCustomValidity("");
         }
 
+        // Update distance when pace is valid
+        if (type === 'lap' && paceRegex.test(value) && this.workoutData.laps[index]) {
+            const paceSeconds = this.parsePace(value);
+            const speed = 1000 / paceSeconds; // m/s
+            const distance = speed * this.workoutData.laps[index].time;
+            this.lapDistances[index] = Math.round(distance) || "";
+        }
+
         // Update validation state
         this.checkValidation();
+    },
+
+    updatePaceFromDistance(index) {
+        const distance = parseFloat(this.lapDistances[index]);
+        if (!isNaN(distance) && distance > 0 && this.workoutData.laps[index] && this.workoutData.laps[index].time > 0) {
+            const timeHours = this.workoutData.laps[index].time / 3600;
+            const distanceKm = distance / 1000;
+            const paceMinPerKm = (timeHours / distanceKm) * 60;
+            const minutes = Math.floor(paceMinPerKm);
+            const seconds = Math.round((paceMinPerKm - minutes) * 60);
+            if (seconds >= 60) {
+                this.lapPaces[index] = `${minutes + 1}:00`;
+            } else {
+                this.lapPaces[index] = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
     },
 
     checkValidation() {
