@@ -1,5 +1,7 @@
 # FIT Pace Adjuster
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit-blue)](https://anden100.github.io/fit-pace-adjuster/)
+
 A lightweight web tool for adjusting paces in Garmin FIT files, specifically designed for treadmill running activities. This tool allows you to modify workout paces either as a single pace for the entire workout or individual paces per lap.
 
 ## Features
