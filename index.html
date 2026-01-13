@@ -84,10 +84,10 @@
                     <tbody>
                         <template x-for="(lap, index) in (workoutData && workoutData.laps ? workoutData.laps : [])" :key="index">
                             <tr :class="index % 2 === 0 ? 'even-row' : 'odd-row'">
-                                <td class="lap-number" x-text="index + 1"></td>
-                                <td class="lap-distance" x-text="formatDistance(lap.distance)"></td>
-                                <td class="lap-duration" x-text="formatDuration(lap.time)"></td>
-                                <td class="lap-avg-pace" x-text="formatPace(lap.avgPace)"></td>
+                                <td class="lap-number" x-text="index + 1"><!-- Display lap number starting from 1 --></td>
+                                <td class="lap-distance" x-text="formatDistance(lap.distance)"><!-- Formatted distance with units --></td>
+                                <td class="lap-duration" x-text="formatDuration(lap.time)"><!-- Formatted time duration --></td>
+                                <td class="lap-avg-pace" x-text="formatPace(lap.avgPace)"><!-- Formatted average pace --></td>
                             </tr>
                         </template>
                     </tbody>
@@ -140,17 +140,18 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="(lap, index) in (workoutData && workoutData.laps ? workoutData.laps.filter(l => l.distance > 0) : [])" :key="index">
+                        <template x-for="(lap, index) in (workoutData && workoutData.laps ? workoutData.laps : [])" :key="index">
                             <tr :class="index % 2 === 0 ? 'even-row' : 'odd-row'">
-                                <td class="lap-number" x-text="workoutData.laps.indexOf(lap) + 1"></td>
-                                <td class="lap-duration" x-text="formatDuration(lap.time)"></td>
+                                <td class="lap-number" x-text="index + 1"><!-- Display lap number starting from 1 --></td>
+                                <td class="lap-duration" x-text="formatDuration(lap.time)"><!-- Formatted time duration --></td>
                                 <td class="pace-input-cell">
-                        <input type="text"
-                               :id="'lap' + workoutData.laps.indexOf(lap)"
-                               x-model="lapPaces[workoutData.laps.indexOf(lap)]"
-                               placeholder="e.g., 5:30"
-                               @input="validatePace($event, 'lap', workoutData.laps.indexOf(lap))"
-                               class="pace-input-field">
+                                    <!-- Unique ID for each lap input, bind to corresponding pace array index -->
+                                    <input type="text"
+                                           :id="'lap' + index"
+                                           x-model="lapPaces[index]"
+                                           placeholder="5:30"
+                                           @input="validatePace($event, 'lap', index)"
+                                           class="pace-input-field">
                                 </td>
                             </tr>
                         </template>
