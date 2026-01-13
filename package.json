@@ -1,0 +1,17 @@
+{
+  "name": "fit-pace-adjuster",
+  "version": "1.0.0",
+  "description": "A tool to adjust paces in Garmin FIT files for treadmill running activities",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "alpinejs": "^3.14.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

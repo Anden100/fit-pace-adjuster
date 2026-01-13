@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIT Pace Adjuster - Modify Treadmill Workout Paces</title>
+    <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+    <div class="container" x-data="app()">
+        <header class="header">
+            <h1>FIT Pace Adjuster</h1>
+            <p>Adjust paces in your Garmin FIT files for treadmill running activities</p>
+        </header>
+
+        <!-- File Upload Section -->
+        <section class="upload-section">
+            <div class="upload-area"
+                 x-bind:class="{ 'dragover': isDragOver }"
+                 @dragover.prevent="isDragOver = true"
+                 @dragleave.prevent="isDragOver = false"
+                 @drop.prevent="handleFileDrop($event)">
+                <input type="file" id="fitFile" accept=".fit" @change="handleFileSelect($event)" hidden>
+                <label for="fitFile" class="upload-label">
+                    <div x-show="!fitFile" class="upload-placeholder">
+                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <p>Drop your .FIT file here or <span class="upload-link">browse</span></p>
+                        <p class="upload-hint">Supports Garmin FIT files from treadmill workouts</p>
+                    </div>
+                    <div x-show="fitFile" class="file-info">
+                        <svg class="file-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <div class="file-details">
+                            <p class="file-name" x-text="fitFile?.name"></p>
+                            <p class="file-size" x-text="fitFile?.size ? formatFileSize(fitFile.size) : ''"></p>
+                        </div>
+                        <button @click="clearFile" class="clear-btn">×</button>
+                    </div>
+                </label>
+            </div>
+        </section>
+
+        <!-- Workout Info Section -->
+        <section x-show="workoutData" class="workout-info">
+            <h2>Workout Information</h2>
+            <div class="workout-summary">
+                <div class="summary-item">
+                    <span class="label">Activity:</span>
+                    <span class="value" x-text="workoutData?.activityType"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Date:</span>
+                    <span class="value" x-text="workoutData?.startTime ? formatDate(workoutData.startTime) : ''"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Total Distance:</span>
+                    <span class="value" x-text="workoutData?.totalDistance ? formatDistance(workoutData.totalDistance) : ''"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Total Time:</span>
+                    <span class="value" x-text="workoutData?.totalTime ? formatDuration(workoutData.totalTime) : ''"></span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Laps:</span>
+                    <span class="value" x-text="workoutData?.laps?.length || 0"></span>
+                </div>
+            </div>
+
+            <!-- Lap Details -->
+            <div class="laps-section">
+                <h3>Lap Details</h3>
+                <table class="laps-table">
+                    <thead>
+                        <tr>
+                            <th>Lap</th>
+                            <th>Distance</th>
+                            <th>Time</th>
+                            <th>Avg Pace</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(lap, index) in (workoutData && workoutData.laps ? workoutData.laps : [])" :key="index">
+                            <tr :class="index % 2 === 0 ? 'even-row' : 'odd-row'">
+                                <td class="lap-number" x-text="index + 1"></td>
+                                <td class="lap-distance" x-text="formatDistance(lap.distance)"></td>
+                                <td class="lap-duration" x-text="formatDuration(lap.time)"></td>
+                                <td class="lap-avg-pace" x-text="formatPace(lap.avgPace)"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Pace Adjustment Section -->
+        <section x-show="workoutData" class="pace-adjustment">
+            <h2>Adjust Paces</h2>
+
+            <!-- Pace Mode Selection -->
+            <div class="pace-mode">
+                <label class="radio-label">
+                    <input type="radio" x-model="paceMode" value="single">
+                    <span>Single pace for entire workout</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" x-model="paceMode" value="per-lap">
+                    <span>Individual pace per lap</span>
+                </label>
+            </div>
+
+            <!-- Unit Selection -->
+            <div class="unit-selection">
+                <span class="unit-selector">
+                    <label><input type="radio" x-model="paceUnit" value="km"> min/km</label>
+                    <label><input type="radio" x-model="paceUnit" value="mile"> min/mile</label>
+                </span>
+            </div>
+
+            <!-- Single Pace Input -->
+            <div x-show="paceMode === 'single'" class="pace-input">
+                <label for="singlePace">Target Pace (min/km or min/mile):</label>
+                <input type="text" id="singlePace" x-model="singlePace" placeholder="e.g., 5:30" @input="validatePace($event, 'single')">
+                <label class="checkbox-label">
+                    <input type="checkbox" x-model="autoLapEnabled">
+                    <span>Generate auto-laps (every 1km)</span>
+                </label>
+            </div>
+
+            <!-- Per-Lap Pace Inputs -->
+            <div x-show="paceMode === 'per-lap'" class="lap-pace-table-container">
+                <table class="lap-pace-table">
+                    <thead>
+                        <tr>
+                            <th>Lap</th>
+                            <th>Duration</th>
+                            <th>Pace Input</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(lap, index) in (workoutData && workoutData.laps ? workoutData.laps.filter(l => l.distance > 0) : [])" :key="index">
+                            <tr :class="index % 2 === 0 ? 'even-row' : 'odd-row'">
+                                <td class="lap-number" x-text="workoutData.laps.indexOf(lap) + 1"></td>
+                                <td class="lap-duration" x-text="formatDuration(lap.time)"></td>
+                                <td class="pace-input-cell">
+                        <input type="text"
+                               :id="'lap' + workoutData.laps.indexOf(lap)"
+                               x-model="lapPaces[workoutData.laps.indexOf(lap)]"
+                               placeholder="e.g., 5:30"
+                               @input="validatePace($event, 'lap', workoutData.laps.indexOf(lap))"
+                               class="pace-input-field">
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Download Section -->
+        <section x-show="workoutData && isValid" class="download-section">
+            <button @click="adjustAndDownload" class="download-btn" :disabled="isProcessing">
+                <span x-show="!isProcessing">Adjust Paces & Download</span>
+                <span x-show="isProcessing">Processing...</span>
+            </button>
+        </section>
+
+        <!-- Error Messages -->
+        <div x-show="errorMessage" class="error-message" x-text="errorMessage"></div>
+
+        <!-- Loading Indicator -->
+        <div x-show="isLoading" class="loading">
+            <div class="spinner"></div>
+            <p>Processing FIT file...</p>
+        </div>
+    </div>
+
+    <script type="module" src="./src/app.js"></script>
+</body>
+</html>
