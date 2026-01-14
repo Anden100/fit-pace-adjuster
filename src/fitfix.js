@@ -1,5 +1,7 @@
 import { Stream, Decoder, Encoder, Profile, Utils } from "./fitsdk";
 
+const AUTO_LAP_DISTANCE = 1000;
+
 // Convert pace string "mm:ss" to meters/second
 function paceToMetersPerSecond(paceStr) {
     const [min, sec] = paceStr.split(":").map(Number);
@@ -7,9 +9,9 @@ function paceToMetersPerSecond(paceStr) {
     return 1000 / totalSeconds;
 }
 
-function addAutoLaps(mesgs, autoLapDistance = 1000) {
+function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
     const recordMesgs = mesgs.filter(
-        (m) => m.mesgNum === Profile.MesgNum.RECORD,
+        (m) => m.mesgNum === Profile.MesgNum.RECORD
     );
 
     const firstRecord = recordMesgs[0];
@@ -31,9 +33,6 @@ function addAutoLaps(mesgs, autoLapDistance = 1000) {
 
     for (const mesg of recordMesgs) {
         const distance = mesg.distance;
-        if (mesg.speed > currentLap.speed) {
-            currentLap.maxSpeed = mesg.speed;
-        }
         if (mesg.enhancedSpeed > currentLap.enhancedMaxSpeed) {
             currentLap.enhancedMaxSpeed = mesg.enhancedSpeed;
         }
@@ -90,10 +89,15 @@ function addAutoLaps(mesgs, autoLapDistance = 1000) {
                         1000),
                 minHeartRate: currentLap.minHeartRate,
                 avgHeartRate:
-                    currentLap.sumHeartRate / currentLap.countHeartRate,
+                    currentLap.countHeartRate > 0
+                        ? currentLap.sumHeartRate / currentLap.countHeartRate
+                        : 0,
                 maxHeartRate: currentLap.maxHeartRate,
                 minCadence: currentLap.minCadence,
-                avgCadence: currentLap.sumCadence / currentLap.countCadence,
+                avgCadence:
+                    currentLap.countCadence > 0
+                        ? currentLap.sumCadence / currentLap.countCadence
+                        : 0,
                 maxCadence: currentLap.maxCadence,
             };
             mesgs.push(lap);
@@ -116,6 +120,10 @@ function addAutoLaps(mesgs, autoLapDistance = 1000) {
         }
     }
 
+    const avgSpeed =
+        (mesg.distance - currentLap.startDistance) /
+        ((mesg.timestamp.getTime() - currentLap.startTime.getTime()) / 1000);
+
     const mesg = recordMesgs[recordMesgs.length - 1];
     mesgs.push({
         mesgNum: Profile.MesgNum.LAP,
@@ -127,19 +135,16 @@ function addAutoLaps(mesgs, autoLapDistance = 1000) {
         totalElapsedTime:
             (mesg.timestamp.getTime() - currentLap.startTime.getTime()) / 1000,
         totalDistance: mesg.distance - currentLap.startDistance,
-        avgSpeed:
-            (mesg.distance - currentLap.startDistance) /
-            ((mesg.timestamp.getTime() - currentLap.startTime.getTime()) /
-                1000),
+        avgSpeed,
         maxSpeed: currentLap.maxSpeed,
         enhancedMaxSpeed: currentLap.enhancedMaxSpeed,
-        enhancedAvgSpeed: currentLap.avgSpeed,
+        enhancedAvgSpeed: avgSpeed,
     });
 }
 
 function fixFit(
     buffer,
-    { autolap = false, keepLaps = false, speed = null, speeds = null } = {},
+    { autolap = false, keepLaps = false, speed = null, speeds = null } = {}
 ) {
     if (speed == null && speeds == null) {
         throw new Error("Please supply either a speed or speeds");
@@ -161,13 +166,13 @@ function fixFit(
     const { messages, errors } = decoder.read({});
 
     if (errors.length > 0) {
-        throw new Error("Decoding failed with error(s):", console.log(errors));
+        throw new Error("Decoding failed with errors: " + errors.join(", "));
     }
 
     const mesgs = [];
     if (speeds && messages.lapMesgs.length !== speeds.length) {
         throw new Error(
-            "Speeds array length must match lap length in fit file",
+            "Speeds array length must match lap length in fit file"
         );
     }
 
@@ -283,15 +288,23 @@ function fixFit(
         addAutoLaps(mesgs, 1000);
     }
 
+    let maxSpeed = 0;
+    const laps = mesgs.filter((m) => m.mesgNum === Profile.MesgNum.LAP);
+    for (const lap of laps) {
+        if (lap.maxSpeed > maxSpeed) {
+            maxSpeed = lap.maxSpeed;
+        }
+    }
+
     if (messages.sessionMesgs && messages.sessionMesgs.length > 0) {
         const mesg = messages.sessionMesgs[0];
         const sessionMesg = {
             mesgNum: Profile.MesgNum.SESSION,
             ...mesg,
             totalDistance: distance,
-            maxSpeed: speed, // TODO: update for multi-lap support
+            maxSpeed: maxSpeed,
             avgSpeed: distance / mesg.totalTimerTime,
-            enhancedMaxSpeed: speed, // TODO: update for multi-lap support
+            enhancedMaxSpeed: maxSpeed,
             enhancedAvgSpeed: distance / mesg.totalTimerTime,
         };
         mesgs.push(sessionMesg);
@@ -322,7 +335,7 @@ function fixFit(
         console.error(
             error.name,
             error.message,
-            JSON.stringify(error?.cause, null, 2),
+            JSON.stringify(error?.cause, null, 2)
         );
 
         throw error;
