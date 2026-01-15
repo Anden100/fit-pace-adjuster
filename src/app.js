@@ -162,6 +162,11 @@ Alpine.data("app", () => ({
         this.workoutData = workoutData;
         this.lapPaces = new Array(workoutData.laps.length).fill("");
         this.lapDistances = new Array(workoutData.laps.length).fill("");
+
+        // Reset to single pace mode if there are fewer than 2 laps
+        if (!workoutData.laps || workoutData.laps.length < 2) {
+            this.paceMode = 'single';
+        }
     },
 
     calculatePace(distance, time) {
