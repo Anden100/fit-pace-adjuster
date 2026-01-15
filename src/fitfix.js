@@ -120,11 +120,10 @@ function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
         }
     }
 
+    const mesg = recordMesgs[recordMesgs.length - 1];
     const avgSpeed =
         (mesg.distance - currentLap.startDistance) /
         ((mesg.timestamp.getTime() - currentLap.startTime.getTime()) / 1000);
-
-    const mesg = recordMesgs[recordMesgs.length - 1];
     mesgs.push({
         mesgNum: Profile.MesgNum.LAP,
         timestamp: mesg.timestamp,
