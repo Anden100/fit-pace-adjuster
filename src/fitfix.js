@@ -11,7 +11,7 @@ function paceToMetersPerSecond(paceStr) {
 
 function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
     const recordMesgs = mesgs.filter(
-        (m) => m.mesgNum === Profile.MesgNum.RECORD
+        (m) => m.mesgNum === Profile.MesgNum.RECORD,
     );
 
     const firstRecord = recordMesgs[0];
@@ -143,7 +143,7 @@ function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
 
 function fixFit(
     buffer,
-    { autolap = false, keepLaps = false, speed = null, speeds = null } = {}
+    { autolap = false, keepLaps = false, speed = null, speeds = null } = {},
 ) {
     if (speed == null && speeds == null) {
         throw new Error("Please supply either a speed or speeds");
@@ -171,7 +171,7 @@ function fixFit(
     const mesgs = [];
     if (speeds && messages.lapMesgs.length !== speeds.length) {
         throw new Error(
-            "Speeds array length must match lap length in fit file"
+            "Speeds array length must match lap length in fit file",
         );
     }
 
@@ -216,6 +216,16 @@ function fixFit(
         });
     }
 
+    if (messages.eventMesgs) {
+        console.log("Event messages:", messages.eventMesgs);
+        messages.eventMesgs.map((mesg) => {
+            mesgs.push({
+                mesgNum: Profile.MesgNum.EVENT,
+                ...mesg,
+            });
+        });
+    }
+
     let distance = 0;
     if (messages.recordMesgs && messages.recordMesgs.length > 0) {
         let lapIndex = 0;
@@ -233,6 +243,19 @@ function fixFit(
                 }
                 speed = speeds[lapIndex];
             }
+
+            let lastEvent = messages.eventMesgs[0];
+            for (const event of messages.eventMesgs) {
+                if (
+                    event.timestamp < mesg.timestamp &&
+                    event.timestamp > lastEvent.timestamp
+                ) {
+                    lastEvent = event;
+                }
+            }
+            if (lastEvent.eventType == "stop") {
+                speed = 0;
+            }
             const elapsed =
                 (mesg.timestamp.getTime() - prevMesg.timestamp.getTime()) /
                 1000;
@@ -247,15 +270,6 @@ function fixFit(
             };
             prevMesg = recordMesg;
             mesgs.push(recordMesg);
-        });
-    }
-
-    if (messages.eventMesgs) {
-        messages.eventMesgs.map((mesg) => {
-            mesgs.push({
-                mesgNum: Profile.MesgNum.EVENT,
-                ...mesg,
-            });
         });
     }
 
@@ -334,42 +348,40 @@ function fixFit(
         console.error(
             error.name,
             error.message,
-            JSON.stringify(error?.cause, null, 2)
+            JSON.stringify(error?.cause, null, 2),
         );
 
         throw error;
     }
 }
 
-// const buf = fs.readFileSync("6964a2c052f1f04e57c8187a.fit");
-// const speed = paceToMetersPerSecond("6:00");
-// const corrected = fixFit(buf.buffer, {
-//     keepLaps: false,
-//     autolap: true,
-//     speed,
-// });
-
-// const speeds = [
-//     paceToMetersPerSecond("06:00"),
-//     paceToMetersPerSecond("04:45"),
-//     0,
-//     paceToMetersPerSecond("04:45"),
-//     0,
-//     paceToMetersPerSecond("04:45"),
-//     0,
-//     paceToMetersPerSecond("04:45"),
-//     0,
-//     paceToMetersPerSecond("04:45"),
-//     0,
-//     paceToMetersPerSecond("04:45"),
-//     0,
-//     paceToMetersPerSecond("06:15"),
-// ];
-//
-// const corrected = fixFit(buf.buffer, {
-//     speeds,
-// });
-
-// fs.writeFileSync("out.fit", corrected);
+// if (import.meta.main) {
+//     const buf = fs.readFileSync("696fa80cd55105444cc019df.fit");
+// 
+//     const speeds = [
+//         0,
+//         paceToMetersPerSecond("04:30"),
+//         0,
+//         paceToMetersPerSecond("04:30"),
+//         0,
+//         paceToMetersPerSecond("04:30"),
+//         0,
+//         paceToMetersPerSecond("04:30"),
+//         0,
+//         paceToMetersPerSecond("04:30"),
+//         0,
+//         paceToMetersPerSecond("04:30"),
+//         0,
+//         paceToMetersPerSecond("04:30"),
+//         0,
+//         paceToMetersPerSecond("04:30"),
+//         0,
+//         0,
+//     ];
+//     const corrected = fixFit(buf.buffer, {
+//         speeds,
+//     });
+//     fs.writeFileSync("out.fit", corrected);
+// }
 
 export { fixFit, paceToMetersPerSecond };
