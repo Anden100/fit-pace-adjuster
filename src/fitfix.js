@@ -217,7 +217,6 @@ function fixFit(
     }
 
     if (messages.eventMesgs) {
-        console.log("Event messages:", messages.eventMesgs);
         messages.eventMesgs.map((mesg) => {
             mesgs.push({
                 mesgNum: Profile.MesgNum.EVENT,
@@ -261,14 +260,19 @@ function fixFit(
                 1000;
             distance = prevMesg.distance + elapsed * speed;
 
-            const recordMesg = {
-                mesgNum: Profile.MesgNum.RECORD,
-                ...mesg,
-                distance,
-                speed,
-                enhancedSpeed: speed,
-            };
+            const recordMesg = {};
+            recordMesg.mesgNum = Profile.MesgNum.RECORD;
+            for (const key of Object.keys(mesg)) {
+                if (key === "distance" || key === "speed" || key === "enhancedSpeed") {
+                    continue;
+                }
+                recordMesg[key] = mesg[key];
+            }
+            recordMesg.distance = distance;
+            recordMesg.speed = speed;
+            recordMesg.enhancedSpeed = speed;
             prevMesg = recordMesg;
+
             mesgs.push(recordMesg);
         });
     }
@@ -354,34 +358,5 @@ function fixFit(
         throw error;
     }
 }
-
-// if (import.meta.main) {
-//     const buf = fs.readFileSync("696fa80cd55105444cc019df.fit");
-// 
-//     const speeds = [
-//         0,
-//         paceToMetersPerSecond("04:30"),
-//         0,
-//         paceToMetersPerSecond("04:30"),
-//         0,
-//         paceToMetersPerSecond("04:30"),
-//         0,
-//         paceToMetersPerSecond("04:30"),
-//         0,
-//         paceToMetersPerSecond("04:30"),
-//         0,
-//         paceToMetersPerSecond("04:30"),
-//         0,
-//         paceToMetersPerSecond("04:30"),
-//         0,
-//         paceToMetersPerSecond("04:30"),
-//         0,
-//         0,
-//     ];
-//     const corrected = fixFit(buf.buffer, {
-//         speeds,
-//     });
-//     fs.writeFileSync("out.fit", corrected);
-// }
 
 export { fixFit, paceToMetersPerSecond };
