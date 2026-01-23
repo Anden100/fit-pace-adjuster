@@ -1,5 +1,5 @@
 import Alpine from "alpinejs";
-import { Decoder, Encoder, Stream, Profile } from "./fitsdk";
+import { Decoder, Stream, Profile } from "./fitsdk";
 import { fixFit } from "./fitfix.js";
 
 window.Alpine = Alpine;
@@ -167,6 +167,8 @@ Alpine.data("app", () => ({
         if (!workoutData.laps || workoutData.laps.length < 2) {
             this.paceMode = 'single';
         }
+
+        this.updateValidity();
     },
 
     calculatePace(distance, time) {
@@ -175,27 +177,36 @@ Alpine.data("app", () => ({
         return time / 60 / (distance / 1000);
     },
 
-    validatePace(event, type, index = null) {
-        const value = event.target.value;
-        const paceRegex = /^(\d{1,2}):([0-5]\d)$/;
+        validatePace(event, type, index = null) {
+            const value = event.target.value;
+            const paceRegex = /^(\d{1,2}):([0-5]\d)$/;
 
-        if (!paceRegex.test(value) && value !== "") {
-            event.target.setCustomValidity("Please enter pace in format MM:SS");
-        } else {
-            event.target.setCustomValidity("");
-        }
+            if (!paceRegex.test(value) && value !== "") {
+                event.target.setCustomValidity("Please enter pace in format MM:SS");
+            } else {
+                event.target.setCustomValidity("");
+                // Update distance when pace is valid
+                if (type === 'lap' && paceRegex.test(value) && this.workoutData.laps[index]) {
+                    const paceSeconds = this.parsePace(value);
+                    const speed = 1000 / paceSeconds; // m/s
+                    const distance = speed * this.workoutData.laps[index].time;
+                    this.lapDistances[index] = Math.round(distance) || "";
+                }
+            }
 
-        // Update distance when pace is valid
-        if (type === 'lap' && paceRegex.test(value) && this.workoutData.laps[index]) {
-            const paceSeconds = this.parsePace(value);
-            const speed = 1000 / paceSeconds; // m/s
-            const distance = speed * this.workoutData.laps[index].time;
-            this.lapDistances[index] = Math.round(distance) || "";
-        }
+            this.updateValidity();
+        },
 
-        // Update validation state
-        this.checkValidation();
-    },
+        updateValidity() {
+            const paceRegex = /^(\d{1,2}):([0-5]\d)$/;
+            if (this.paceMode === "single") {
+                this.isValid = this.singlePace && paceRegex.test(this.singlePace);
+            } else {
+                this.isValid = this.lapPaces.every(
+                    (pace) => pace === "" || paceRegex.test(pace)
+                );
+            }
+        },
 
     updatePaceFromDistance(index) {
         const distance = parseFloat(this.lapDistances[index]);
@@ -225,30 +236,46 @@ Alpine.data("app", () => ({
         }
     },
 
-    async adjustAndDownload() {
-        if (!this.isValid || !this.originalBuffer || !this.fitFile) return;
-
-        this.isProcessing = true;
-        this.errorMessage = "";
-
-        try {
-            const distanceUnit = this.paceUnit === "km" ? 1000 : 1609.34;
-
-            let options;
+        async adjustAndDownload() {
             if (this.paceMode === "single") {
+                if (!this.singlePace) {
+                    this.showError("Please enter a target pace");
+                    return;
+                }
+
+                const paceRegex = /^(\d{1,2}):([0-5]\d)$/;
+                if (!paceRegex.test(this.singlePace)) {
+                    this.showError("Please enter a valid pace in MM:SS format");
+                    return;
+                }
+
                 const targetPaceSeconds = this.parsePace(this.singlePace);
-                const targetSpeed = distanceUnit / targetPaceSeconds;
-                options = { speed: targetSpeed, autolap: this.autoLapEnabled };
+                const targetSpeed = 1000 / targetPaceSeconds; // m/s
+
+                const options = { speed: targetSpeed, autolap: this.autoLapEnabled };
+                this.adjustPaces(options);
             } else {
-                const targetPaceSeconds = this.lapPaces.map((pace) => this.parsePace(pace));
-                const speeds = targetPaceSeconds.map((s) => (s ? distanceUnit / s : 0));
-                options = { speeds };
+                // Per-lap pace adjustment
+                const invalidPaces = this.lapPaces.filter(
+                    (pace) => pace !== "" && !/^(\d{1,2}):([0-5]\d)$/.test(pace)
+                );
+                if (invalidPaces.length > 0) {
+                    this.showError("Please correct invalid paces");
+                    return;
+                }
+
+                const speeds = this.lapPaces.map((pace) => pace ? 1000 / this.parsePace(pace) : 0);
+
+                const options = { speeds, autolap: this.autoLapEnabled };
+                this.adjustPaces(options);
             }
+        },
 
-            const uint8Array = fixFit(this.originalBuffer, options);
-
-            // Download the file
-            this.downloadFile(uint8Array, this.getOutputFilename());
+    adjustPaces(options) {
+        this.isProcessing = true;
+        try {
+            const corrected = fixFit(this.originalBuffer, options);
+            this.downloadFile(corrected, this.getOutputFilename());
         } catch (error) {
             console.error("Error adjusting paces:", error);
             this.showError("Error adjusting paces: " + error.message);
