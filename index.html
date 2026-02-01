@@ -111,17 +111,11 @@
                 </label>
             </div>
 
-            <!-- Unit Selection -->
-            <div class="unit-selection">
-                <span class="unit-selector">
-                    <label><input type="radio" x-model="paceUnit" value="km"> min/km</label>
-                    <label><input type="radio" x-model="paceUnit" value="mile"> min/mile</label>
-                </span>
-            </div>
+
 
             <!-- Single Pace Input -->
             <div x-show="paceMode === 'single'" class="pace-input">
-                <label for="singlePace">Target Pace (min/km or min/mile):</label>
+                <label for="singlePace">Target Pace (min/km):</label>
                 <input type="text" id="singlePace" x-model="singlePace" placeholder="e.g., 5:30" @input="validatePace($event, 'single')">
                 <label class="checkbox-label">
                     <input type="checkbox" x-model="autoLapEnabled">
@@ -137,6 +131,7 @@
                             <th>Lap</th>
                             <th>Duration</th>
                             <th>Pace</th>
+                            <th>Speed (km/h)</th>
                             <th>Distance (m)</th>
                         </tr>
                     </thead>
@@ -152,6 +147,14 @@
                                            x-model="lapPaces[index]"
                                            placeholder="5:30"
                                            @input="validatePace($event, 'lap', index)"
+                                           class="lap-input-field">
+                                </td>
+                                <td class="speed-input-cell">
+                                    <input type="text"
+                                           :id="'speed' + index"
+                                           x-model="lapSpeeds[index]"
+                                           placeholder="12.5"
+                                           @input="validateSpeed($event, index)"
                                            class="lap-input-field">
                                 </td>
                                 <td class="distance-input-cell">

@@ -8,7 +8,7 @@ A lightweight web tool for adjusting paces in Garmin FIT files, specifically des
 
 - **FIT File Support**: Works with Garmin FIT files from treadmill workouts
 - **Flexible Pace Adjustment**: Choose between single pace for entire workout or per-lap pacing
-- **Unit Support**: Supports both min/km and min/mile pace formats
+- **Dual Input Support**: Input paces as min/km or speeds as km/h with real-time conversion
 - **Static Hosting Ready**: Optimized for deployment on GitHub Pages or any static host
 - **Lightweight**: Built with Alpine.js and minimal dependencies
 
