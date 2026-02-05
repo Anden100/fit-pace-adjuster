@@ -160,6 +160,8 @@ function fixFit(
         }
     }
 
+    const fixedSpeed = speed;
+
     const stream = Stream.fromArrayBuffer(buffer);
     const decoder = new Decoder(stream);
     const { messages, errors } = decoder.read({});
@@ -241,6 +243,8 @@ function fixFit(
                     }
                 }
                 speed = speeds[lapIndex];
+            } else {
+                speed = fixedSpeed;
             }
 
             let lastEvent = messages.eventMesgs[0];
