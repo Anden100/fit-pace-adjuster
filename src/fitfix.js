@@ -184,30 +184,32 @@ function fixFit(
     });
 
     // Create the Developer Id message for the developer data fields.
-    const developerDataIdMesg = {
-        mesgNum: Profile.MesgNum.DEVELOPER_DATA_ID,
-        ...messages.developerDataIdMesgs[0],
-    };
-    mesgs.push(developerDataIdMesg);
-
     const fieldDescriptions = {};
-    messages.fieldDescriptionMesgs.map((mesg) => {
-        const fieldDescMesg = {
-            mesgNum: Profile.MesgNum.FIELD_DESCRIPTION,
-            ...mesg,
+    if (messages.developerDataIdMesgs && messages.developerDataIdMesgs.length >= 1) {
+        const developerDataIdMesg = {
+            mesgNum: Profile.MesgNum.DEVELOPER_DATA_ID,
+            ...messages.developerDataIdMesgs[0],
         };
+        mesgs.push(developerDataIdMesg);
 
-        if (fieldDescMesg.fitBaseTypeId == Utils.FitBaseType.STRING) {
-            fieldDescMesg.type = "string";
-        }
+        messages.fieldDescriptionMesgs.map((mesg) => {
+            const fieldDescMesg = {
+                mesgNum: Profile.MesgNum.FIELD_DESCRIPTION,
+                ...mesg,
+            };
 
-        mesgs.push(fieldDescMesg);
+            if (fieldDescMesg.fitBaseTypeId == Utils.FitBaseType.STRING) {
+                fieldDescMesg.type = "string";
+            }
 
-        fieldDescriptions[mesg.key] = {
-            developerDataIdMesg: developerDataIdMesg,
-            fieldDescriptionMesg: fieldDescMesg,
-        };
-    });
+            mesgs.push(fieldDescMesg);
+
+            fieldDescriptions[mesg.key] = {
+                developerDataIdMesg: developerDataIdMesg,
+                fieldDescriptionMesg: fieldDescMesg,
+            };
+        });
+    }
 
     if (messages.deviceInfoMesgs) {
         messages.deviceInfoMesgs.map((mesg) => {
@@ -247,17 +249,20 @@ function fixFit(
                 speed = fixedSpeed;
             }
 
-            let lastEvent = messages.eventMesgs[0];
-            for (const event of messages.eventMesgs) {
-                if (
-                    event.timestamp < mesg.timestamp &&
-                    event.timestamp > lastEvent.timestamp
-                ) {
-                    lastEvent = event;
+            // set speed to 0 if we are currently stopped
+            if (messages.eventMesgs && messages.eventMesgs.length >= 1) {
+                let lastEvent = messages.eventMesgs[0];
+                for (const event of messages.eventMesgs) {
+                    if (
+                        event.timestamp < mesg.timestamp &&
+                        event.timestamp > lastEvent.timestamp
+                    ) {
+                        lastEvent = event;
+                    }
                 }
-            }
-            if (lastEvent.eventType == "stop") {
-                speed = 0;
+                if (lastEvent.eventType == "stop") {
+                    speed = 0;
+                }
             }
             const elapsed =
                 (mesg.timestamp.getTime() - prevMesg.timestamp.getTime()) /
