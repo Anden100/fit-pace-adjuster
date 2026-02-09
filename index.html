@@ -166,7 +166,7 @@
                                            :id="'distance' + index"
                                            x-model="lapDistances[index]"
                                            placeholder="1000"
-                                           @input="updatePaceFromDistance(index)"
+                                           @input="updatePaceFromDistance($event, 'lap', index)"
                                            class="lap-input-field">
                                 </td>
                             </tr>
