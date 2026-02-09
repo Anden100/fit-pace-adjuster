@@ -1,6 +1,7 @@
 {
   "name": "fit-pace-adjuster",
   "version": "1.0.0",
+  "type": "module",
   "homepage": "https://anden100.github.io/fit-pace-adjuster",
   "description": "A tool to adjust paces in Garmin FIT files for treadmill running activities",
   "main": "index.html",
