@@ -1,5 +1,5 @@
 import Alpine from "alpinejs";
-import { Decoder, Stream, Profile } from "./fitsdk";
+import { Decoder, Stream } from "./fitsdk";
 import { fixFit } from "./fitfix.js";
 
 window.Alpine = Alpine;
@@ -20,6 +20,8 @@ Alpine.data("app", () => ({
     paceMode: "single",
 
     singlePace: "",
+    singleSpeed: "",
+    singleDistance: "",
     autoLapEnabled: true,
     lapDistances: [],
     lapPaces: [],
@@ -117,6 +119,8 @@ Alpine.data("app", () => ({
         } finally {
             this.isLoading = false;
         }
+
+        console.log(this.workoutData.totalTime);
     },
 
     parseWorkoutData(messages) {
@@ -224,12 +228,15 @@ Alpine.data("app", () => ({
             if (paceRegex.test(value) && type === "lap") {
                 this.lapSpeeds[index] = this.paceToSpeed(value);
             }
-        }
 
+            if (type == "single") {
+                this.singleSpeed = this.paceToSpeed(value);
+            }
+        }
         this.updateValidity();
     },
 
-    validateSpeed(event, index) {
+    validateSpeed(event, type, index = null) {
         const value = event.target.value;
         const speedRegex = /^\d*\.?\d{0,1}$/; // Allow decimal with 1 decimal place
 
@@ -238,17 +245,21 @@ Alpine.data("app", () => ({
                 "Please enter speed in km/h (e.g., 12.5)",
             );
         } else {
-            event.target.setCustomValidity("");
-            // Auto-update pace when speed changes
-            if (speedRegex.test(value) && parseFloat(value) > 0) {
-                this.lapPaces[index] = this.speedToPace(parseFloat(value));
-                // Update distance as well
-                if (this.workoutData.laps[index]) {
-                    const speedMs = parseFloat(value) / 3.6; // Convert km/h to m/s
-                    const distance =
-                        speedMs * this.workoutData.laps[index].time;
-                    this.lapDistances[index] = Math.round(distance) || "";
+            if (type == "lap") {
+                event.target.setCustomValidity("");
+                // Auto-update pace when speed changes
+                if (speedRegex.test(value) && parseFloat(value) > 0) {
+                    this.lapPaces[index] = this.speedToPace(parseFloat(value));
+                    // Update distance as well
+                    if (this.workoutData.laps[index]) {
+                        const speedMs = parseFloat(value) / 3.6; // Convert km/h to m/s
+                        const distance =
+                            speedMs * this.workoutData.laps[index].time;
+                        this.lapDistances[index] = Math.round(distance) || "";
+                    }
                 }
+            } else {
+                this.singlePace = this.speedToPace(parseFloat(value));
             }
         }
         this.updateValidity();
@@ -259,7 +270,8 @@ Alpine.data("app", () => ({
         const speedRegex = /^\d*\.?\d{0,1}$/;
 
         if (this.paceMode === "single") {
-            this.isValid = this.singlePace && paceRegex.test(this.singlePace);
+            const paceValid = this.singlePace && paceRegex.test(this.singlePace);
+            return paceValid;
         } else {
             this.isValid = this.lapPaces.every((pace, index) => {
                 const paceValid = pace === "" || paceRegex.test(pace);
@@ -271,43 +283,64 @@ Alpine.data("app", () => ({
         }
     },
 
-    updatePaceFromDistance(index) {
-        const distance = parseFloat(this.lapDistances[index]);
-        if (
-            !isNaN(distance) &&
-            distance > 0 &&
-            this.workoutData.laps[index] &&
-            this.workoutData.laps[index].time > 0
-        ) {
-            const timeHours = this.workoutData.laps[index].time / 3600;
+    updatePaceFromDistance(event, type, index = null) {
+        if (type == "single") {
+            const distance = parseFloat(this.singleDistance);
             const distanceKm = distance / 1000;
+            const timeHours = this.workoutData.totalTime / 3600;
             const paceMinPerKm = (timeHours / distanceKm) * 60;
             const minutes = Math.floor(paceMinPerKm);
             const seconds = Math.round((paceMinPerKm - minutes) * 60);
             if (seconds >= 60) {
-                this.lapPaces[index] = `${minutes + 1}:00`;
+                this.singlePace = `${minutes + 1}:00`;
             } else {
-                this.lapPaces[index] =
+                this.singlePace =
                     `${minutes}:${seconds.toString().padStart(2, "0")}`;
+            }
+            this.singleSpeed = this.paceToSpeed(this.singlePace);
+        } else {
+            const distance = parseFloat(this.lapDistances[index]);
+            if (
+                !isNaN(distance) &&
+                distance > 0 &&
+                this.workoutData.laps[index] &&
+                this.workoutData.laps[index].time > 0
+            ) {
+                const timeHours = this.workoutData.laps[index].time / 3600;
+                const distanceKm = distance / 1000;
+                const paceMinPerKm = (timeHours / distanceKm) * 60;
+                const minutes = Math.floor(paceMinPerKm);
+                const seconds = Math.round((paceMinPerKm - minutes) * 60);
+                if (seconds >= 60) {
+                    this.lapPaces[index] = `${minutes + 1}:00`;
+                } else {
+                    this.lapPaces[index] =
+                        `${minutes}:${seconds.toString().padStart(2, "0")}`;
+                }
             }
         }
     },
 
     async adjustAndDownload() {
         if (this.paceMode === "single") {
-            if (!this.singlePace) {
-                this.showError("Please enter a target pace");
+            if (!this.singlePace && !this.singleSpeed) {
+                this.showError("Please enter a target pace or taregt speed");
                 return;
             }
 
-            const paceRegex = /^(\d{1,2}):([0-5]\d)$/;
-            if (!paceRegex.test(this.singlePace)) {
-                this.showError("Please enter a valid pace in MM:SS format");
-                return;
-            }
+            let targetSpeed = 0;
+            if (this.singlePace) {
+                const paceRegex = /^(\d{1,2}):([0-5]\d)$/;
+                if (!paceRegex.test(this.singlePace)) {
+                    this.showError("Please enter a valid pace in MM:SS format");
+                    return;
+                }
 
-            const targetPaceSeconds = this.parsePace(this.singlePace);
-            const targetSpeed = 1000 / targetPaceSeconds; // m/s
+                const targetPaceSeconds = this.parsePace(this.singlePace);
+                targetSpeed = 1000 / targetPaceSeconds; // m/s
+            } else {
+                targetSpeed = parseFloat(this.singleSpeed / 3.6);
+            }
 
             const options = {
                 speed: targetSpeed,
