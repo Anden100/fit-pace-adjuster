@@ -120,7 +120,7 @@
                 <label for="singleSpeed">Target Speed (km/h):</label>
                 <input type="text" id="singleSpeed" x-model="singleSpeed" placeholder="12.5" @input="validateSpeed($event, 'single')">
                 <label for="singleDistance">Target Distance (m)</label>
-                <input type="text" id="singleDistance" x-model="singleDistance" placeholder="1000" @input="updatePaceFromDistance($event, 'single')">
+                <input type="text" id="singleDistance" x-model="singleDistance" placeholder="1000" @input="validateDistance($event, 'single')">
                 <label class="checkbox-label">
                     <input type="checkbox" x-model="autoLapEnabled">
                     <span>Generate auto-laps (every 1km)</span>
@@ -166,7 +166,7 @@
                                            :id="'distance' + index"
                                            x-model="lapDistances[index]"
                                            placeholder="1000"
-                                           @input="updatePaceFromDistance($event, 'lap', index)"
+                                           @input="validateDistance($event, 'lap', index)"
                                            class="lap-input-field">
                                 </td>
                             </tr>
