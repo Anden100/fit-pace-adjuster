@@ -1,5 +1,5 @@
 import Alpine from "alpinejs";
-import { Decoder, Stream } from "./fitsdk";
+import { Decoder, Stream } from "@garmin/fitsdk";
 import { fixFit } from "./fitfix.js";
 
 window.Alpine = Alpine;

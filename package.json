@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@garmin/fitsdk": "^21.194.0",
     "alpinejs": "^3.14.1"
   },
   "devDependencies": {

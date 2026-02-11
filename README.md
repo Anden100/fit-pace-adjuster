@@ -22,7 +22,7 @@ A lightweight web tool for adjusting paces in Garmin FIT files, specifically des
 ## Technical Stack
 
 - **Frontend Framework**: Alpine.js (7KB gzipped)
-- **FIT Processing**: Local copy of Garmin FIT JavaScript SDK (with custom bug fixes)
+- **FIT Processing**: @garmin/fitsdk npm package
 - **Build Tool**: Vite
 - **Deployment**: Static hosting (GitHub Pages ready)
 

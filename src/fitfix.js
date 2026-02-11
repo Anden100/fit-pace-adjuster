@@ -1,4 +1,4 @@
-import { Stream, Decoder, Encoder, Profile, Utils } from "./fitsdk";
+import { Stream, Decoder, Encoder, Profile, Utils } from "@garmin/fitsdk";
 
 const AUTO_LAP_DISTANCE = 1000;
 
