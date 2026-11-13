@@ -261,7 +261,11 @@ Alpine.data("app", () => ({
             if (speedRegex.test(value) && parseFloat(value) > 0) {
                 const speedMS = parseFloat(value) / 3.6;
                 this.updateSpeed(speedMS, type, index);
-                this.singleSpeed = value;
+                if (index !== null) {
+                    this.lapSpeeds[index] = value;
+                } else {
+                    this.singleSpeed = value;
+                }
             }
         }
         this.updateValidity();
