@@ -198,7 +198,7 @@ Alpine.data("app", () => ({
 
     speedToPace(speed) {
         if (!speed || speed <= 0) return "";
-        const paceMinPerKm = 1000 / (speed * 60);
+        const paceMinPerKm = 1000 / (Math.round((speed * 60) * 100) / 100);
         const minutes = Math.floor(paceMinPerKm);
         const seconds = Math.round((paceMinPerKm - minutes) * 60);
         return `${minutes}:${seconds.toString().padStart(2, "0")}`;
