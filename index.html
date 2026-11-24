@@ -184,8 +184,8 @@
         </section>
 
         <!-- Download Section -->
-        <section x-show="workoutData && isValid" class="download-section">
-            <button @click="adjustAndDownload" class="adjust-btn" :disabled="isProcessing">
+        <section x-show="workoutData" class="download-section">
+            <button @click="adjustAndDownload" class="adjust-btn" :disabled="isProcessing || !isValid">
                 <span x-show="!isProcessing">Adjust Paces & Download</span>
                 <span x-show="isProcessing">Processing...</span>
             </button>

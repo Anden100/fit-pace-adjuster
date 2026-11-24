@@ -41,6 +41,9 @@ Alpine.data("app", () => ({
         this.lapPaces = [];
         this.lapDistances = [];
         this.lapSpeeds = [];
+
+        // Re-evaluate validity when the user switches pace mode.
+        this.$watch("paceMode", () => this.updateValidity());
     },
 
     handleFileSelect(event) {
@@ -119,7 +122,6 @@ Alpine.data("app", () => ({
 
             this.decodedMessages = messages;
             this.parseWorkoutData(messages);
-            this.isValid = true;
         } catch (error) {
             console.error("Error processing FIT file:", error);
             this.showError(error.message || "Error processing FIT file");
@@ -285,6 +287,7 @@ Alpine.data("app", () => ({
             const speedMS = distance / time;
             this.updateSpeed(speedMS, type, index);
         }
+        this.updateValidity();
     },
 
     updateValidity() {
@@ -293,8 +296,18 @@ Alpine.data("app", () => ({
 
         if (this.paceMode === "single") {
             const paceValid =
-                this.singlePace && paceRegex.test(this.singlePace);
-            return paceValid;
+                this.singlePace === "" || paceRegex.test(this.singlePace);
+            const speedValid =
+                this.singleSpeed === "" ||
+                (speedRegex.test(this.singleSpeed) &&
+                    parseFloat(this.singleSpeed) > 0);
+            const distance = parseFloat(this.singleDistance);
+            const hasTarget =
+                this.singlePace !== "" ||
+                this.singleSpeed !== "" ||
+                (Number.isFinite(distance) && distance > 0);
+
+            this.isValid = hasTarget && paceValid && speedValid;
         } else {
             this.isValid = this.lapPaces.every((pace, index) => {
                 const paceValid = pace === "" || paceRegex.test(pace);
@@ -308,8 +321,10 @@ Alpine.data("app", () => ({
 
     async adjustAndDownload() {
         if (this.paceMode === "single") {
-            if (!this.singlePace && !this.singleSpeed) {
-                this.showError("Please enter a target pace or taregt speed");
+            if (!this.isValid) {
+                this.showError(
+                    "Please enter a valid target pace, speed, or distance",
+                );
                 return;
             }
 
