@@ -197,10 +197,13 @@ Alpine.data("app", () => ({
     },
 
     speedToPace(speed) {
-        if (!speed || speed <= 0) return "";
-        const paceMinPerKm = 1000 / (Math.round((speed * 60) * 100) / 100);
-        const minutes = Math.floor(paceMinPerKm);
-        const seconds = Math.round((paceMinPerKm - minutes) * 60);
+        if (!Number.isFinite(speed) || speed <= 0) return "";
+        // Round the total seconds per km once, then split into minutes and
+        // seconds. This avoids the carry bug where e.g. 10 km/h produced
+        // "5:60" instead of "6:00".
+        const secondsPerKm = Math.round(1000 / speed);
+        const minutes = Math.floor(secondsPerKm / 60);
+        const seconds = secondsPerKm % 60;
         return `${minutes}:${seconds.toString().padStart(2, "0")}`;
     },
 
