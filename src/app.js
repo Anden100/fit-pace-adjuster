@@ -37,13 +37,22 @@ Alpine.data("app", () => ({
     isValid: false,
 
     init() {
+        this.resetPaceInputs();
+
+        // Re-evaluate validity when the user switches pace mode.
+        this.$watch("paceMode", () => this.updateValidity());
+    },
+
+    resetPaceInputs() {
+        this.singleSpeedMS = 0;
+        this.singlePace = "";
+        this.singleSpeed = "";
+        this.singleDistance = "";
+
         this.lapSpeedsMS = [];
         this.lapPaces = [];
         this.lapDistances = [];
         this.lapSpeeds = [];
-
-        // Re-evaluate validity when the user switches pace mode.
-        this.$watch("paceMode", () => this.updateValidity());
     },
 
     handleFileSelect(event) {
@@ -69,10 +78,7 @@ Alpine.data("app", () => ({
         this.workoutData = null;
         this.decodedMessages = null;
         this.errorMessage = "";
-        this.lapPaces = [];
-        this.lapDistances = [];
-        this.lapSpeeds = [];
-        this.singlePace = "";
+        this.resetPaceInputs();
         this.autoLapEnabled = true;
         this.isValid = false;
         // Clear file input
@@ -86,6 +92,8 @@ Alpine.data("app", () => ({
             return;
         }
 
+        this.resetPaceInputs();
+        this.isValid = false;
         this.fitFile = file;
         this.isLoading = true;
         this.errorMessage = "";
