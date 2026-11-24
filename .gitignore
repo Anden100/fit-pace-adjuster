@@ -85,7 +85,9 @@ dist
 
 # Gatsby files
 .cache/
-public
+
+# public/ is intentionally tracked: it holds static assets served as-is
+# (PWA icons, manifest, etc.) that must be present in CI builds.
 
 # Storybook build outputs
 .out
