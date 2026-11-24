@@ -33,6 +33,9 @@ function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
 
     for (const mesg of recordMesgs) {
         const distance = mesg.distance;
+        if (mesg.speed > currentLap.maxSpeed) {
+            currentLap.maxSpeed = mesg.speed;
+        }
         if (mesg.enhancedSpeed > currentLap.enhancedMaxSpeed) {
             currentLap.enhancedMaxSpeed = mesg.enhancedSpeed;
         }
@@ -106,7 +109,7 @@ function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
                 timestamp: mesg.timestamp,
                 startTime: mesg.timestamp,
                 startDistance: distance,
-                // maxSpeed: 0,
+                maxSpeed: 0,
                 enhancedMaxSpeed: 0,
                 sumHeartRate: 0,
                 countHeartRate: 0,
