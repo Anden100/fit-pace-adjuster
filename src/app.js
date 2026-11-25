@@ -4,6 +4,16 @@ import { fixFit } from "./fitfix.js";
 
 window.Alpine = Alpine;
 
+const PACE_REGEX = /^(\d{1,2}):([0-5]\d)$/;
+
+// Speeds need at least one digit before an optional decimal point and at
+// most one decimal place, so a lone "." is not treated as a valid speed.
+const SPEED_REGEX = /^\d+(\.\d{0,1})?$/;
+
+const isValidSpeedInput = (value) =>
+    value === "" ||
+    (SPEED_REGEX.test(value) && parseFloat(value) > 0);
+
 Alpine.data("app", () => ({
     // File handling
     fitFile: null,
@@ -247,13 +257,12 @@ Alpine.data("app", () => ({
 
     validatePace(event, type, index = null) {
         const value = event.target.value;
-        const paceRegex = /^(\d{1,2}):([0-5]\d)$/;
 
-        if (!paceRegex.test(value) && value !== "") {
+        if (!PACE_REGEX.test(value) && value !== "") {
             event.target.setCustomValidity("Please enter pace in format MM:SS");
         } else {
             event.target.setCustomValidity("");
-            if (paceRegex.test(value)) {
+            if (PACE_REGEX.test(value)) {
                 const speedMS = this.paceToSpeed(value);
                 this.updateSpeed(speedMS, type, index);
             }
@@ -263,15 +272,14 @@ Alpine.data("app", () => ({
 
     validateSpeed(event, type, index = null) {
         const value = event.target.value;
-        const speedRegex = /^\d*\.?\d{0,1}$/;
 
-        if (!speedRegex.test(value) && value !== "") {
+        if (!isValidSpeedInput(value)) {
             event.target.setCustomValidity(
                 "Please enter speed in km/h (e.g., 12.5)",
             );
         } else {
             event.target.setCustomValidity("");
-            if (speedRegex.test(value) && parseFloat(value) > 0) {
+            if (value !== "") {
                 const speedMS = parseFloat(value) / 3.6;
                 this.updateSpeed(speedMS, type, index);
                 if (index !== null) {
@@ -299,16 +307,10 @@ Alpine.data("app", () => ({
     },
 
     updateValidity() {
-        const paceRegex = /^(\d{1,2}):([0-5]\d)$/;
-        const speedRegex = /^\d*\.?\d{0,1}$/;
-
         if (this.paceMode === "single") {
             const paceValid =
-                this.singlePace === "" || paceRegex.test(this.singlePace);
-            const speedValid =
-                this.singleSpeed === "" ||
-                (speedRegex.test(this.singleSpeed) &&
-                    parseFloat(this.singleSpeed) > 0);
+                this.singlePace === "" || PACE_REGEX.test(this.singlePace);
+            const speedValid = isValidSpeedInput(this.singleSpeed);
             const distance = parseFloat(this.singleDistance);
             const hasTarget =
                 this.singlePace !== "" ||
@@ -318,10 +320,8 @@ Alpine.data("app", () => ({
             this.isValid = hasTarget && paceValid && speedValid;
         } else {
             this.isValid = this.lapPaces.every((pace, index) => {
-                const paceValid = pace === "" || paceRegex.test(pace);
-                const speedValid =
-                    this.lapSpeeds[index] === "" ||
-                    speedRegex.test(this.lapSpeeds[index]);
+                const paceValid = pace === "" || PACE_REGEX.test(pace);
+                const speedValid = isValidSpeedInput(this.lapSpeeds[index]);
                 return paceValid && speedValid;
             });
         }
@@ -344,10 +344,10 @@ Alpine.data("app", () => ({
         } else {
             // Per-lap pace adjustment
             const invalidPaces = this.lapPaces.filter(
-                (pace) => pace !== "" && !/^(\d{1,2}):([0-5]\d)$/.test(pace),
+                (pace) => pace !== "" && !PACE_REGEX.test(pace),
             );
             const invalidSpeeds = this.lapSpeeds.filter(
-                (speed) => speed !== "" && !/^\d*\.?\d{0,1}$/.test(speed),
+                (speed) => !isValidSpeedInput(speed),
             );
 
             if (invalidPaces.length > 0 || invalidSpeeds.length > 0) {
@@ -390,7 +390,8 @@ Alpine.data("app", () => ({
 
     getOutputFilename() {
         if (!this.fitFile) return "adjusted.fit";
-        const originalName = this.fitFile.name.replace(".fit", "");
+        // Strip a trailing .fit regardless of extension casing.
+        const originalName = this.fitFile.name.replace(/\.fit$/i, "");
         return `${originalName}_adjusted.fit`;
     },
 
