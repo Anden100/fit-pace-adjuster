@@ -14,6 +14,10 @@ function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
         (m) => m.mesgNum === Profile.MesgNum.RECORD,
     );
 
+    if (recordMesgs.length === 0) {
+        return;
+    }
+
     const firstRecord = recordMesgs[0];
     let currentLap = {
         timestamp: firstRecord.timestamp,
@@ -174,10 +178,15 @@ function fixFit(
     }
 
     const mesgs = [];
-    if (speeds && messages.lapMesgs.length !== speeds.length) {
-        throw new Error(
-            "Speeds array length must match lap length in fit file",
-        );
+    if (speeds) {
+        if (
+            !messages.lapMesgs ||
+            messages.lapMesgs.length !== speeds.length
+        ) {
+            throw new Error(
+                "Speeds array length must match lap length in fit file",
+            );
+        }
     }
 
     // Every FIT file MUST contain a File ID message
@@ -314,6 +323,11 @@ function fixFit(
             });
         }
     } else if (autolap) {
+        if (!messages.recordMesgs || messages.recordMesgs.length === 0) {
+            throw new Error(
+                "Cannot generate auto-laps: the FIT file contains no record messages",
+            );
+        }
         addAutoLaps(mesgs, 1000);
     }
 
