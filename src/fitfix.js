@@ -2,11 +2,73 @@ import { Stream, Decoder, Encoder, Profile, Utils } from "@garmin/fitsdk";
 
 const AUTO_LAP_DISTANCE = 1000;
 
+// Message types that fixFit rebuilds itself. Everything else is carried over
+// unchanged so re-encoding does not silently drop data such as file creator,
+// sport settings, workouts, courses, segments, monitoring, or HRV messages.
+const HANDLED_MESSAGE_KEYS = new Set([
+    "fileIdMesgs",
+    "developerDataIdMesgs",
+    "fieldDescriptionMesgs",
+    "deviceInfoMesgs",
+    "eventMesgs",
+    "recordMesgs",
+    "lapMesgs",
+    "sessionMesgs",
+    "activityMesgs",
+]);
+
+// Decoder message buckets are keyed by name (e.g. "fileCreatorMesgs"), while
+// the encoder needs the numeric FIT message id.
+const MESG_NUM_BY_MESSAGES_KEY = new Map(
+    Object.values(Profile.messages).map((mesg) => [
+        mesg.messagesKey,
+        mesg.num,
+    ]),
+);
+
 // Convert pace string "mm:ss" to meters/second
 function paceToMetersPerSecond(paceStr) {
     const [min, sec] = paceStr.split(":").map(Number);
     const totalSeconds = min * 60 + sec;
     return 1000 / totalSeconds;
+}
+
+// Build a LAP message from the accumulated stats of the lap that ends at
+// endMesg. Shared by full and final partial auto-laps so both carry the same
+// distance, speed, heart-rate, and cadence aggregates.
+function buildAutoLapMesg(lap, endMesg) {
+    const elapsedSeconds =
+        (endMesg.timestamp.getTime() - lap.startTime.getTime()) / 1000;
+    const totalDistance = endMesg.distance - lap.startDistance;
+    const avgSpeed = elapsedSeconds > 0 ? totalDistance / elapsedSeconds : 0;
+
+    const lapMesg = {
+        mesgNum: Profile.MesgNum.LAP,
+        timestamp: endMesg.timestamp,
+        startTime: lap.startTime,
+        lapTrigger: "distance",
+        totalTimerTime: elapsedSeconds,
+        totalElapsedTime: elapsedSeconds,
+        totalDistance,
+        avgSpeed,
+        maxSpeed: lap.maxSpeed,
+        enhancedMaxSpeed: lap.enhancedMaxSpeed,
+        enhancedAvgSpeed: avgSpeed,
+    };
+
+    // Only emit aggregates when the lap actually contains samples, otherwise
+    // the FIT fields would be written with out-of-range placeholder values.
+    if (lap.countHeartRate > 0) {
+        lapMesg.minHeartRate = lap.minHeartRate;
+        lapMesg.avgHeartRate = lap.sumHeartRate / lap.countHeartRate;
+        lapMesg.maxHeartRate = lap.maxHeartRate;
+    }
+    if (lap.countCadence > 0) {
+        lapMesg.avgCadence = lap.sumCadence / lap.countCadence;
+        lapMesg.maxCadence = lap.maxCadence;
+    }
+
+    return lapMesg;
 }
 
 function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
@@ -32,7 +94,6 @@ function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
         sumCadence: 0,
         countCadence: 0,
         maxCadence: 0,
-        minCadence: 1000,
     };
 
     for (const mesg of recordMesgs) {
@@ -57,9 +118,6 @@ function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
             if (mesg.cadence > currentLap.maxCadence) {
                 currentLap.maxCadence = mesg.cadence;
             }
-            if (mesg.cadence < currentLap.minCadence) {
-                currentLap.minCadence = mesg.cadence;
-            }
             currentLap.sumCadence += mesg.cadence;
             currentLap.countCadence += 1;
         }
@@ -68,45 +126,7 @@ function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
             Math.round((distance - currentLap.startDistance) * 100) / 100 >=
             autoLapDistance
         ) {
-            const lap = {
-                mesgNum: Profile.MesgNum.LAP,
-                timestamp: mesg.timestamp,
-                startTime: currentLap.startTime,
-                lapTrigger: "distance",
-                totalTimerTime:
-                    (mesg.timestamp.getTime() -
-                        currentLap.startTime.getTime()) /
-                    1000,
-                totalElapsedTime:
-                    (mesg.timestamp.getTime() -
-                        currentLap.startTime.getTime()) /
-                    1000,
-                totalDistance: distance - currentLap.startDistance,
-                avgSpeed:
-                    (distance - currentLap.startDistance) /
-                    ((mesg.timestamp.getTime() -
-                        currentLap.startTime.getTime()) /
-                        1000),
-                maxSpeed: currentLap.maxSpeed,
-                enhancedMaxSpeed: currentLap.enhancedMaxSpeed,
-                enhancedAvgSpeed:
-                    (distance - currentLap.startDistance) /
-                    ((mesg.timestamp.getTime() -
-                        currentLap.startTime.getTime()) /
-                        1000),
-                minHeartRate: currentLap.minHeartRate,
-                avgHeartRate:
-                    currentLap.countHeartRate > 0
-                        ? currentLap.sumHeartRate / currentLap.countHeartRate
-                        : 0,
-                maxHeartRate: currentLap.maxHeartRate,
-                minCadence: currentLap.minCadence,
-                avgCadence:
-                    currentLap.countCadence > 0
-                        ? currentLap.sumCadence / currentLap.countCadence
-                        : 0,
-                maxCadence: currentLap.maxCadence,
-            };
+            const lap = buildAutoLapMesg(currentLap, mesg);
             mesgs.push(lap);
 
             currentLap = {
@@ -122,30 +142,12 @@ function addAutoLaps(mesgs, autoLapDistance = AUTO_LAP_DISTANCE) {
                 sumCadence: 0,
                 countCadence: 0,
                 maxCadence: 0,
-                minCadence: 1000,
             };
         }
     }
 
-    const mesg = recordMesgs[recordMesgs.length - 1];
-    const avgSpeed =
-        (mesg.distance - currentLap.startDistance) /
-        ((mesg.timestamp.getTime() - currentLap.startTime.getTime()) / 1000);
-    mesgs.push({
-        mesgNum: Profile.MesgNum.LAP,
-        timestamp: mesg.timestamp,
-        startTime: currentLap.startTime,
-        lapTrigger: "distance",
-        totalTimerTime:
-            (mesg.timestamp.getTime() - currentLap.startTime.getTime()) / 1000,
-        totalElapsedTime:
-            (mesg.timestamp.getTime() - currentLap.startTime.getTime()) / 1000,
-        totalDistance: mesg.distance - currentLap.startDistance,
-        avgSpeed,
-        maxSpeed: currentLap.maxSpeed,
-        enhancedMaxSpeed: currentLap.enhancedMaxSpeed,
-        enhancedAvgSpeed: avgSpeed,
-    });
+    const lastRecord = recordMesgs[recordMesgs.length - 1];
+    mesgs.push(buildAutoLapMesg(currentLap, lastRecord));
 }
 
 function fixFit(
@@ -242,6 +244,18 @@ function fixFit(
     }
 
     let distance = 0;
+    let totalElapsedTime = 0;
+    // Per-lap totals derived from the rewritten records, so pauses (records
+    // written with zero speed) are reflected in lap distance and avg speed.
+    const lapStats =
+        speeds && messages.lapMesgs
+            ? messages.lapMesgs.map(() => ({
+                  distance: 0,
+                  timerTime: 0,
+                  elapsedTime: 0,
+              }))
+            : null;
+
     if (messages.recordMesgs && messages.recordMesgs.length > 0) {
         let lapIndex = 0;
         let prevMesg = messages.recordMesgs[0]; // we lose the first second, but ... whatever
@@ -263,16 +277,17 @@ function fixFit(
 
             // set speed to 0 if we are currently stopped
             if (messages.eventMesgs && messages.eventMesgs.length >= 1) {
-                let lastEvent = messages.eventMesgs[0];
+                let lastEvent = null;
                 for (const event of messages.eventMesgs) {
                     if (
                         event.timestamp < mesg.timestamp &&
-                        event.timestamp > lastEvent.timestamp
+                        (!lastEvent ||
+                            event.timestamp > lastEvent.timestamp)
                     ) {
                         lastEvent = event;
                     }
                 }
-                if (lastEvent.eventType == "stop") {
+                if (lastEvent && lastEvent.eventType == "stop") {
                     speed = 0;
                 }
             }
@@ -280,6 +295,17 @@ function fixFit(
                 (mesg.timestamp.getTime() - prevMesg.timestamp.getTime()) /
                 1000;
             distance = prevMesg.distance + elapsed * speed;
+            totalElapsedTime += elapsed;
+
+            if (lapStats && lapStats[lapIndex]) {
+                const stats = lapStats[lapIndex];
+                const lapDistance = elapsed * speed;
+                stats.distance += lapDistance;
+                stats.elapsedTime += elapsed;
+                if (speed > 0) {
+                    stats.timerTime += elapsed;
+                }
+            }
 
             const recordMesg = {};
             recordMesg.mesgNum = Profile.MesgNum.RECORD;
@@ -310,14 +336,29 @@ function fixFit(
     } else if (speeds != null) {
         if (messages.lapMesgs) {
             messages.lapMesgs.map((mesg, index) => {
+                const stats = lapStats[index];
+                const totalDistance = stats
+                    ? stats.distance
+                    : speeds[index] * mesg.totalTimerTime;
+                // Prefer the device's timer time (which excludes pauses),
+                // falling back to the times measured from the records.
+                const timerTime =
+                    mesg.totalTimerTime > 0
+                        ? mesg.totalTimerTime
+                        : stats
+                          ? stats.timerTime || stats.elapsedTime
+                          : 0;
+                const avgSpeed =
+                    timerTime > 0 ? totalDistance / timerTime : speeds[index];
+
                 const lapMesg = {
                     mesgNum: Profile.MesgNum.LAP,
                     ...mesg,
-                    avgSpeed: speeds[index],
+                    totalDistance,
+                    avgSpeed,
                     maxSpeed: speeds[index],
                     enhancedMaxSpeed: speeds[index],
-                    enhancedAvgSpeed: speeds[index],
-                    totalDistance: speeds[index] * mesg.totalTimerTime,
+                    enhancedAvgSpeed: avgSpeed,
                 };
                 mesgs.push(lapMesg);
             });
@@ -341,16 +382,55 @@ function fixFit(
 
     if (messages.sessionMesgs && messages.sessionMesgs.length > 0) {
         const mesg = messages.sessionMesgs[0];
+        // Fall back to elapsed time (or the record timestamps) when the
+        // source session has no totalTimerTime, which would otherwise make
+        // avgSpeed NaN.
+        const sessionTime =
+            mesg.totalTimerTime > 0
+                ? mesg.totalTimerTime
+                : mesg.totalElapsedTime > 0
+                  ? mesg.totalElapsedTime
+                  : totalElapsedTime;
+        const avgSpeed =
+            sessionTime > 0 ? distance / sessionTime : mesg.avgSpeed;
+
         const sessionMesg = {
             mesgNum: Profile.MesgNum.SESSION,
             ...mesg,
             totalDistance: distance,
             maxSpeed: maxSpeed,
-            avgSpeed: distance / mesg.totalTimerTime,
             enhancedMaxSpeed: maxSpeed,
-            enhancedAvgSpeed: distance / mesg.totalTimerTime,
         };
+        if (Number.isFinite(avgSpeed)) {
+            sessionMesg.avgSpeed = avgSpeed;
+            sessionMesg.enhancedAvgSpeed = avgSpeed;
+        }
         mesgs.push(sessionMesg);
+    }
+
+    // Carry over every message type fixFit does not rebuild above.
+    for (const [key, mesgList] of Object.entries(messages)) {
+        if (HANDLED_MESSAGE_KEYS.has(key) || !Array.isArray(mesgList)) {
+            continue;
+        }
+
+        const mesgNum = MESG_NUM_BY_MESSAGES_KEY.get(key);
+        if (mesgNum === undefined) {
+            // Unknown-message buckets are keyed by their raw message number
+            // and have no decoded fields with the default read options.
+            continue;
+        }
+
+        for (const mesg of mesgList) {
+            mesgs.push({ mesgNum, ...mesg });
+        }
+    }
+
+    // Only the first session is rewritten; keep any additional sessions.
+    if (messages.sessionMesgs) {
+        for (const mesg of messages.sessionMesgs.slice(1)) {
+            mesgs.push({ mesgNum: Profile.MesgNum.SESSION, ...mesg });
+        }
     }
 
     if (messages.activityMesgs) {
